@@ -34,7 +34,7 @@ fn read_amd_gpu() -> (Option<u32>, Option<u32>, Option<u32>, Option<u32>) {
     let util = read_u32_from_file("/sys/class/drm/card0/device/gpu_busy_percent")
         .or_else(|| read_from_debugfs("amdgpu_pm_info", "GPU load"));
     
-    let temp = read_hwmon_temp().map(|t| t as u32)
+    let temp = read_hwmon_temp().map(|t| t as f32)
         .or_else(|| read_from_debugfs("amdgpu_pm_info", "GPU Temperature"));
     
     let core_clk = read_u32_from_file("/sys/class/drm/card0/device/pp_cur_sclk")
