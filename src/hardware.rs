@@ -49,8 +49,22 @@ fn read_nvidia_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
         .ok()?;
 
     let data = String::from_utf8_lossy(&output.stdout);
+    let parts: Vec<&str> = data.trim().split(',').collect();
+    if parts.len() != 4 {
+        return (None, None, None, None);
+    }
 
+    let util = parts[0].trim().parse().ok();
+    let temp = parts[1].trim().parse::<f32>().ok()
+    let core_clk = parts[2].trim().parse().ok();
+    let mem_clk = parts[3].trim().parse().ok();
 
+    (util, temp, core_clk, mem_clk)
+}
+
+fn read_intel_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
+    (None, None, None, None)
+    // intel is limited in GPU file based access
 }
 
 pub fn read_u32_from_file(path: &str) -> Option<u32> {
@@ -72,4 +86,18 @@ pub fn read_hwmon_temp() -> Option<f32> {
     None
 }
 
+fn read_from_debugfs(file: &str, key: &str) -> Option<u32> {
+    let path = format!("/sys/kernel/debug/dri/0/{}", file);
+    let content = fs::read_to_string(Path::new(&path)).ok()?;
+    for line in content.lines() {
+        if line.contains(key) {
+            for token in line.split_whitespace() {
+                if let Ok(val) = token.parse::<u32> {
+                    return Some(val);
+                }
+            }
+        }
+    }
+    None
+}
 
