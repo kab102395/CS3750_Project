@@ -31,22 +31,36 @@ fn detect_gpu_vendor() -> Option<String> {
 }
 
 fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
-    let util = read_u32_from_file("/sys/class/drm/card0/device/gpu_busy_percent")
-        .or_else(|| read_from_debugfs("amdgpu_pm_info", "GPU Load"));
+    let paths = glob("/sys/kernel/debug/dri/*/amdgpu_pm_info").ok()?;
+    for entry in paths.flatten() {
+        if let Ok(content) = fs::read_to_string(&entry) {
+            let mut util = None;
+            let mut temp = None;
+            let mut sclk = None;
+            let mut mclk = None;
 
-    // Convert Option<u32> -> Option<f32> with map
-    let temp = read_hwmon_temp().or_else(|| {
-        read_from_debugfs("amdgpu_pm_info", "GPU Temperature").map(|t| t as f32)
-    });
+            for line in content.lines() {
+                if line.contains("GPU Load") {
+                    util = line.split_whitespace().nth(2).and_then(|v| v.parse().ok());
+                }
+                if line.contains("GPU Temperature") {
+                    temp = line.split_whitespace().nth(2).and_then(|v| v.parse::<u32>().ok()).map(|v| v as f32);
+                }
+                if line.contains("SCLK") && sclk.is_none() {
+                    sclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
+                }
+                if line.contains("MCLK") && mclk.is_none() {
+                    mclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
+                }
+            }
 
-    let core_clk = read_u32_from_file("/sys/class/drm/card0/device/pp_cur_sclk")
-        .or_else(|| read_from_debugfs("amdgpu_pm_info", "SCLK"));
+            return (util, temp, sclk, mclk);
+        }
+    }
 
-    let mem_clk = read_u32_from_file("/sys/class/drm/card0/device/pp_cur_mclk")
-        .or_else(|| read_from_debugfs("amdgpu_pm_info", "MCLK"));
-
-    (util, temp, core_clk, mem_clk)
+    (None, None, None, None)
 }
+
 
 
 

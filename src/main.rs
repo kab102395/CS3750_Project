@@ -5,6 +5,9 @@ mod logger;
 mod reset;
 mod hardware;
 mod test;
+mod permissions;
+
+
 use cli::parse_args;
 
 fn main() {
@@ -24,6 +27,10 @@ fn main() {
 
     if args.log {
         logger:: log_system_info();
+    } 
+    
+    if args.log {
+        permissions::ensure_gpu_permissions();
     }
 
 
