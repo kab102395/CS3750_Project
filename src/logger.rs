@@ -17,12 +17,18 @@ struct LogEntry {
     accurate_cpu_total: Option<f64>,
     sysinfo_cpu_total: Option<f32>,
     per_core: Vec<f32>,
+
+    // gpu metrics
+    gpu_util_percent: Option<u32>,
+    gpu_temp_celsius: Option<u32>,
+    gpu_core_clock_mhz: Option<u32>,
+    gpu_mem_clock_mhz: Option<u32>,
 }
 
-pub fn log_ssytem_info {
+pub fn log_system_info() {
     let refresh = RefreshKind::new()
         .with_cpu(CpuRefreshKind::everything())
-        .with_memory(MemoryRefreshKind::new())
+        .with_memory(MemoryRefreshKind::new());
 
     let mut sys = System::new_with_specifics(refresh);
     sys.refresh_cpu();
@@ -41,9 +47,15 @@ pub fn log_ssytem_info {
     //CPU
     let cpus = sys.cpus();
     let accurate_cpu_total = calculate_proc_cpu_usage();
-    let sysinfo_cpu_total = cpus.first().map(|c| c.cpu.usage());
+    let sysinfo_cpu_total = cpus.first().map(|c| c.cpu_usage());
 
     let per_core: Vec<f32> = cpus.iter().skip(1).map(|c| c.cpu_usage()).collect();
+
+    //GPU
+    let gpu_util_percent = read_u32_from_file("/sys/class/drm/card0/device/gpu_busy_percent");
+    let gpu_core_clock_mhz = read_u32_from_file("/sys/class/drm/card0/device/pp_cur_sclk");
+    let gpu_mem_clock_mhz = read_u32_from_file("/sys/class/drm/card0/device/pp_cur_mclk");
+    let gpu_temp_celsius = read_hwmon_temp();
 
     let log = LogEntry {
         timestamp,
@@ -53,8 +65,12 @@ pub fn log_ssytem_info {
         accurate_cpu_total,
         sysinfo_cpu_total,
         per_core,
-    };
 
+        gpu_util_percent,
+        gpu_temp_celsius,
+        gpu_core_clock_mhz,
+        gpu_mem_clock_mhz,
+    };
 
     //write to file
     if let Err(e) = save_log(&log) {
@@ -73,5 +89,27 @@ fn save_log(entry: &LogEntry) -> std::io::Result<()> {
     let data = serde_json::to_string_pretty(entry).unwrap();
     file.write_all(data.as_bytes())?;
 
-    ok(())
+    Ok(())
+}
+
+fn read_u32_from_file(path: &str) -> Option<u32> {
+    std::fs::read_to_string(path)
+        .ok()?
+        .trim()
+        .parse::<u32>()
+        .ok()
+}
+
+fn read_hwmon_temp() -> Option<f32> {
+    let pattern = "/sys/class/drm/card0/device/hwmon*/temp1_input";
+    let paths = glob::glob(pattern).ok()?;
+
+    for path in paths.flatten() {
+        if let Ok(temp_raw) = std::fs::read_to_string(&path) {
+            if let Ok(val) = temp_raw.trim().parse::<u32>() {
+                return Some(val as f32 / 1000.0); 
+            }
+        }
+    }
+    None
 }

@@ -1,5 +1,6 @@
 use std::{fs::File, io::{BufRead, BufReader}, thread, time::Duration};
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
+use crate::hardware::get_gpu_info;
 
 pub fn print_system_status() {
     // Initialize sysinfo
@@ -44,10 +45,20 @@ pub fn print_system_status() {
         println!("Core {:2}: {:>5.1}%", i, cpu.cpu_usage());
     }
 
+    // GPU info 
+    let (gpu_util, gpu_temp, gpu_core_clk, gpu_mem_clk) = get_gpu_info();
+    println!("\n--- GPU Status ---");
+    println!("GPU Usage:         {}%", gpu_util.unwrap_or(0));
+    println!("GPU Temp (°C):     {:.1}", gpu_temp.unwrap_or(0.0));
+    println!("GPU Core Clock:    {} MHz", gpu_core_clk.unwrap_or(0));
+    println!("GPU Memory Clock:  {} MHz", gpu_mem_clk.unwrap_or(0));
+
+
+
     println!("====================\n");
 }
 
-fn read_proc_stat() -> Option<(u64, u64)> {
+pub fn read_proc_stat() -> Option<(u64, u64)> {
     let file = File::open("/proc/stat").ok()?;
     let reader = BufReader::new(file);
 
@@ -70,7 +81,7 @@ fn read_proc_stat() -> Option<(u64, u64)> {
     None
 }
 
-fn calculate_proc_cpu_usage() -> Option<f64> {
+pub fn calculate_proc_cpu_usage() -> Option<f64> {
     let (total1, idle1) = read_proc_stat()?;
     thread::sleep(Duration::from_millis(1000));
     let (total2, idle2) = read_proc_stat()?;
