@@ -4,7 +4,7 @@ mod modes;
 mod logger;
 mod reset;
 mod hardware;
-
+mod test;
 use cli::parse_args;
 
 fn main() {
