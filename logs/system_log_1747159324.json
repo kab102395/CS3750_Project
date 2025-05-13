@@ -1,0 +1,29 @@
+{
+  "timestamp": 1747159324,
+  "uptime": 41641,
+  "memory_used_gb": 20042.828125,
+  "memory_total_gb": 31412.0390625,
+  "accurate_cpu_total": 21.536523929471034,
+  "sysinfo_cpu_total": 8.163265,
+  "per_core": [
+    35.714287,
+    12.121212,
+    6.122449,
+    10.10101,
+    29.70297,
+    9.0,
+    23.0,
+    9.9009905,
+    28.57143,
+    15.000001,
+    13.0,
+    9.090909,
+    46.0,
+    33.67347,
+    19.387754
+  ],
+  "gpu_util_percent": null,
+  "gpu_temp_celsius": null,
+  "gpu_core_clock_mhz": null,
+  "gpu_mem_clock_mhz": null
+}
