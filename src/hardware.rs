@@ -5,7 +5,7 @@ use std::io;
 use std::path::Path;
 
 pub fn get_gpu_info() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
-    let gpu_type = dtect_gpu_vendor();
+    let gpu_type = detect_gpu_vendor();
 
     match gpu_type.as_deref() {
         Some("NVIDIA") => read_nvidia_gpu(),
@@ -46,8 +46,11 @@ fn read_nvidia_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     let output = Command::new("nvidia-smi")
         .args(&["--query-gpu=utilization.gpu,tempature.gpu,clocks.sm,clocks.mem","--format=csv.noheader,nounits"])
         .output()
-        .ok()?;
-
+        .ok();
+    let output = match output {
+            Some(data) => data,
+            None => return (None, None, None, None),
+    };
     let data = String::from_utf8_lossy(&output.stdout);
     let parts: Vec<&str> = data.trim().split(',').collect();
     if parts.len() != 4 {
@@ -55,7 +58,7 @@ fn read_nvidia_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     }
 
     let util = parts[0].trim().parse().ok();
-    let temp = parts[1].trim().parse::<f32>().ok()
+    let temp = parts[1].trim().parse::<f32>().ok();
     let core_clk = parts[2].trim().parse().ok();
     let mem_clk = parts[3].trim().parse().ok();
 
@@ -92,7 +95,7 @@ fn read_from_debugfs(file: &str, key: &str) -> Option<u32> {
     for line in content.lines() {
         if line.contains(key) {
             for token in line.split_whitespace() {
-                if let Ok(val) = token.parse::<u32> {
+                if let Ok(val) = token.parse::<u32>() {
                     return Some(val);
                 }
             }
