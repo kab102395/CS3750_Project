@@ -20,7 +20,7 @@ struct LogEntry {
 
     // gpu metrics
     gpu_util_percent: Option<u32>,
-    gpu_temp_celsius: Option<u32>,
+    gpu_temp_celsius: Option<f32>,
     gpu_core_clock_mhz: Option<u32>,
     gpu_mem_clock_mhz: Option<u32>,
 }

@@ -3,6 +3,7 @@ mod status;
 mod modes;
 mod logger;
 mod reset;
+mod hardware;
 
 use cli::parse_args;
 
