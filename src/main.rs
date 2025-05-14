@@ -4,7 +4,6 @@ mod modes;
 mod logger;
 mod reset;
 mod hardware;
-mod test;
 mod permissions;
 
 use cli::parse_args;

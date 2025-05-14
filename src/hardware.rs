@@ -32,7 +32,10 @@ fn detect_gpu_vendor() -> Option<String> {
 }
 
 pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
-    let paths = glob("/sys/kernel/debug/dri/*/amdgpu_pm_info").ok()?;
+    let paths = match glob("/sys/kernel/debug/dri/*/amdgpu_pm_info").ok() {
+        Some(p) => p,
+        None => return (None, None, None, None),
+    };
     for entry in paths.flatten() {
         if let Ok(content) = fs::read_to_string(&entry) {
             let mut util = None;
