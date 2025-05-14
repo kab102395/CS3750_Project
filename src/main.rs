@@ -7,10 +7,13 @@ mod hardware;
 mod test;
 mod permissions;
 
-
 use cli::parse_args;
+use permissions::ensure_gpu_permissions;
 
 fn main() {
+    // Automatically ensure GPU permission rules are in place
+    ensure_gpu_permissions();
+
     let args = parse_args();
 
     if args.show_status {
@@ -26,17 +29,6 @@ fn main() {
     }
 
     if args.log {
-        logger:: log_system_info();
-    } 
-    
-    if args.log {
-        permissions::ensure_gpu_permissions();
+        logger::log_system_info();
     }
-
-
-
-
-
-
-
 }
