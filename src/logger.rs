@@ -7,6 +7,7 @@ use serde::Serialize;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 
 use crate::status::{calculate_proc_cpu_usage, read_proc_stat}; // Use the same logic
+use crate::hardware::get_gpu_info;
 
 #[derive(Serialize)]
 struct LogEntry {
@@ -48,14 +49,10 @@ pub fn log_system_info() {
     let cpus = sys.cpus();
     let accurate_cpu_total = calculate_proc_cpu_usage();
     let sysinfo_cpu_total = cpus.first().map(|c| c.cpu_usage());
-
     let per_core: Vec<f32> = cpus.iter().skip(1).map(|c| c.cpu_usage()).collect();
 
     //GPU
-    let gpu_util_percent = read_u32_from_file("/sys/class/drm/card0/device/gpu_busy_percent");
-    let gpu_core_clock_mhz = read_u32_from_file("/sys/class/drm/card0/device/pp_cur_sclk");
-    let gpu_mem_clock_mhz = read_u32_from_file("/sys/class/drm/card0/device/pp_cur_mclk");
-    let gpu_temp_celsius = read_hwmon_temp();
+    let (gpu_util_percent, gpu_temp_celsius, gpu_core_clock_mhz, gpu_mem_clock_mhz) = get_gpu_info();
 
     let log = LogEntry {
         timestamp,

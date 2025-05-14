@@ -15,6 +15,7 @@ pub fn get_gpu_info() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     }
 }
 
+
 fn detect_gpu_vendor() -> Option<String> {
     let output = Command::new("lspci").arg("-nn").output().ok()?;
     let text = String::from_utf8_lossy(&output.stdout);
@@ -30,7 +31,7 @@ fn detect_gpu_vendor() -> Option<String> {
     }
 }
 
-fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
+pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     let paths = glob("/sys/kernel/debug/dri/*/amdgpu_pm_info").ok()?;
     for entry in paths.flatten() {
         if let Ok(content) = fs::read_to_string(&entry) {
@@ -44,7 +45,11 @@ fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
                     util = line.split_whitespace().nth(2).and_then(|v| v.parse().ok());
                 }
                 if line.contains("GPU Temperature") {
-                    temp = line.split_whitespace().nth(2).and_then(|v| v.parse::<u32>().ok()).map(|v| v as f32);
+                    temp = line
+                        .split_whitespace()
+                        .nth(2)
+                        .and_then(|v| v.parse::<u32>().ok())
+                        .map(|v| v as f32);
                 }
                 if line.contains("SCLK") && sclk.is_none() {
                     sclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());

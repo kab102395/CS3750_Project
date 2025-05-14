@@ -47,11 +47,13 @@ pub fn print_system_status() {
 
     // GPU info 
     let (gpu_util, gpu_temp, gpu_core_clk, gpu_mem_clk) = get_gpu_info();
-    println!("\n--- GPU Status ---");
-    println!("GPU Usage:         {}%", gpu_util.unwrap_or(0));
-    println!("GPU Temp (°C):     {:.1}", gpu_temp.unwrap_or(0.0));
-    println!("GPU Core Clock:    {} MHz", gpu_core_clk.unwrap_or(0));
-    println!("GPU Memory Clock:  {} MHz", gpu_mem_clk.unwrap_or(0));
+
+    println!("\n--- GPU Info ---");
+    println!("GPU Load:           {}%", gpu_util.map_or("N/A".to_string(), |v| v.to_string()));
+    println!("GPU Temperature:    {}°C", gpu_temp.map_or("N/A".to_string(), |v| format!("{:.1}", v)));
+    println!("GPU Core Clock:     {} MHz", gpu_core_clk.map_or("N/A".to_string(), |v| v.to_string()));
+    println!("GPU Memory Clock:   {} MHz", gpu_mem_clk.map_or("N/A".to_string(), |v| v.to_string()));
+
 
 
 
