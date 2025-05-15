@@ -82,7 +82,7 @@ fn collect_amdgpu_stats() -> io::Result<AMDGPUStats> {
                         if let Some(percent_str) = line.split_whitespace().nth(2) {
                             dbg_gpu_util = percent_str.parse::<u32>().ok();
                         }
-                    } else if line.startsWith("MEM Load") {
+                    } else if line.starts_With("MEM Load") {
                         if let Some(percent_str) = line.split_whitespace().nth(2) {
                             dbg_vram_util = percent_str.parse::<u32>().ok();
                         }
@@ -253,3 +253,15 @@ fn collect_amdgpu_stats() -> io::Result<AMDGPUStats> {
 
     Ok(stats)
 }
+pub fn get_gpu_info() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
+    match collect_amdgpu_stats() {
+        Ok(stats) => (
+            stats.gpu_util_percent,
+            stats.temperature_c,
+            stats.core_clock_mhz,
+            stats.memory_clock_mhz,
+        ),
+        Err(_) => (None, None, None, None),
+    }
+}
+
