@@ -128,14 +128,12 @@ fn capture_stdout_threaded<F: FnOnce()>(f: F) -> String {
     let saved_stdout = unsafe { libc::dup(saved_stdout_fd) };
     let saved_stderr = unsafe { libc::dup(saved_stderr_fd) };
 
-    println!("[DEBUG] Inside print_system_status");
-
     unsafe {
         libc::dup2(writer_fd, saved_stdout_fd);
-        libc::dup2(writer_fd, saved_stderr_fd); // ⬅️ Redirect stderr too
+        libc::dup2(writer_fd, saved_stderr_fd);
     }
 
-    f(); // Run your function now
+    f(); // Execute the system status printing
 
     unsafe {
         libc::dup2(saved_stdout, saved_stdout_fd);
@@ -144,11 +142,11 @@ fn capture_stdout_threaded<F: FnOnce()>(f: F) -> String {
         libc::close(saved_stderr);
     }
 
-    drop(writer); // Writer closed so reader gets EOF
+    drop(writer); // ✅ DO THIS BEFORE reading from the pipe to signal EOF
 
     let mut output = String::new();
     let mut reader_file = unsafe { File::from_raw_fd(reader) };
-    let _ = reader_file.read_to_string(&mut output);
+    let _ = reader_file.read_to_string(&mut output); // ✅ Now it won’t hang
 
     output
 }
