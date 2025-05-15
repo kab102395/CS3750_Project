@@ -72,7 +72,6 @@ impl eframe::App for DeckOptimizerGui {
                     let _ = sender.send(output);
                 });
                 
-                });
             
                 self.status_receiver = Some(receiver);
             }
