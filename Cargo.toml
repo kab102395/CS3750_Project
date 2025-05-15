@@ -20,3 +20,7 @@ libc = "0.2.172"
 
 [features]
 gui = []
+
+[[bin]]
+name = "gpu_helper"
+path = "src/gpu_helper.rs"

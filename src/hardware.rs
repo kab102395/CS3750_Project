@@ -36,37 +36,54 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
         Some(p) => p,
         None => return (None, None, None, None),
     };
+
     for entry in paths.flatten() {
         if let Ok(content) = fs::read_to_string(&entry) {
-            let mut util = None;
-            let mut temp = None;
-            let mut sclk = None;
-            let mut mclk = None;
-
-            for line in content.lines() {
-                if line.contains("GPU Load") {
-                    util = line.split_whitespace().nth(2).and_then(|v| v.parse().ok());
-                }
-                if line.contains("GPU Temperature") {
-                    temp = line
-                        .split_whitespace()
-                        .nth(2)
-                        .and_then(|v| v.parse::<u32>().ok())
-                        .map(|v| v as f32);
-                }
-                if line.contains("SCLK") && sclk.is_none() {
-                    sclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
-                }
-                if line.contains("MCLK") && mclk.is_none() {
-                    mclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
+            return parse_amdgpu_pm_info(&content);
+        } else {
+            // Try reading with sudo
+            if let Ok(output) = Command::new("sudo")
+                .arg("cat")
+                .arg(&entry.to_string_lossy().to_string())
+                .output()
+            {
+                if output.status.success() {
+                    let content = String::from_utf8_lossy(&output.stdout);
+                    return parse_amdgpu_pm_info(&content);
                 }
             }
-
-            return (util, temp, sclk, mclk);
         }
     }
 
     (None, None, None, None)
+}
+
+fn parse_amdgpu_pm_info(content: &str) -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
+    let mut util = None;
+    let mut temp = None;
+    let mut sclk = None;
+    let mut mclk = None;
+
+    for line in content.lines() {
+        if line.contains("GPU Load") {
+            util = line.split_whitespace().nth(2).and_then(|v| v.parse().ok());
+        }
+        if line.contains("GPU Temperature") {
+            temp = line
+                .split_whitespace()
+                .nth(2)
+                .and_then(|v| v.parse::<u32>().ok())
+                .map(|v| v as f32);
+        }
+        if line.contains("SCLK") && sclk.is_none() {
+            sclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
+        }
+        if line.contains("MCLK") && mclk.is_none() {
+            mclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
+        }
+    }
+
+    (util, temp, sclk, mclk)
 }
 
 
@@ -109,9 +126,26 @@ pub fn read_hwmon_temp() -> Option<f32> {
     let paths = glob(pattern).ok()?;
 
     for path in paths.flatten() {
+        // Try reading normally
         if let Ok(temp_raw) = std::fs::read_to_string(&path) {
             if let Ok(val) = temp_raw.trim().parse::<u32>() {
                 return Some(val as f32 / 1000.0);
+            }
+        } else {
+            // Fallback to sudo cat
+            if let Ok(output) = Command::new("sudo")
+                .arg("cat")
+                .arg(&path.to_string_lossy().to_string())
+                .output()
+            {
+                if output.status.success() {
+                    if let Ok(val) = String::from_utf8_lossy(&output.stdout)
+                        .trim()
+                        .parse::<u32>()
+                    {
+                        return Some(val as f32 / 1000.0);
+                    }
+                }
             }
         }
     }
@@ -119,13 +153,24 @@ pub fn read_hwmon_temp() -> Option<f32> {
     None
 }
 
+
 fn read_from_debugfs(file: &str, key: &str) -> Option<u32> {
     let pattern = "/sys/kernel/debug/dri/*/amdgpu_pm_info";
     let paths = glob(pattern).ok()?;
 
     for path in paths.flatten() {
         if path.to_string_lossy().contains(file) {
-            if let Ok(content) = fs::read_to_string(&path) {
+            // Try direct read
+            let content_result = fs::read_to_string(&path).or_else(|_| {
+                Command::new("sudo")
+                    .arg("cat")
+                    .arg(&path.to_string_lossy().to_string())
+                    .output()
+                    .ok()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+            });
+
+            if let Some(content) = content_result {
                 for line in content.lines() {
                     if line.contains(key) {
                         for token in line.split_whitespace() {
@@ -138,6 +183,7 @@ fn read_from_debugfs(file: &str, key: &str) -> Option<u32> {
             }
         }
     }
+
     None
 }
 
