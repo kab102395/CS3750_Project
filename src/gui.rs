@@ -67,10 +67,11 @@ impl eframe::App for DeckOptimizerGui {
             
                 let (sender, receiver) = std::sync::mpsc::channel();
                 std::thread::spawn(move || {
-                    let output = capture_stdout_threaded(|| {
-                        print_system_status();
-                    });
+                    // Setup the redirection INSIDE the thread
+                    let output = capture_stdout_threaded(print_system_status);
                     let _ = sender.send(output);
+                });
+                
                 });
             
                 self.status_receiver = Some(receiver);
