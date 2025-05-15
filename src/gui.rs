@@ -79,22 +79,29 @@ impl eframe::App for DeckOptimizerGui {
             if let Some(ref rx) = self.status_receiver {
                 match rx.try_recv() {
                     Ok(output) => {
-                        self.status_output = output;
+                        if output.trim().is_empty() {
+                            self.status_output = "[Warning] Status captured no output.".into();
+                        } else {
+                            self.status_output = output;
+                        }
+                        println!("[DEBUG] Received system output (len={}):", self.status_output.len());
+                        println!("{}", self.status_output);
                         self.status_receiver = None;
                         self.status_requested = false;
                     }
                     Err(std::sync::mpsc::TryRecvError::Empty) => {
-                        // Still waiting
                         ui.label("Fetching system status...");
-                        ctx.request_repaint(); // ❗ Only request when waiting
+                        ctx.request_repaint(); // keep GUI responsive
                     }
-                    Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                        self.status_output = "[Error] Failed to receive system status.".into();
+                    Err(e) => {
+                        self.status_output = format!("[Error] Channel disconnected: {e}");
+                        println!("[DEBUG] Channel error: {e}");
                         self.status_receiver = None;
                         self.status_requested = false;
                     }
                 }
             }
+            
             
 
             if ui.button("Reset to Default").clicked() {

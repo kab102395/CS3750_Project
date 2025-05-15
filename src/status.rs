@@ -3,6 +3,7 @@ use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 use crate::hardware::get_gpu_info;
 
 pub fn print_system_status() {
+    println!("=== Starting System Status Report ===");
     // Initialize sysinfo
     let refresh = RefreshKind::new()
         .with_cpu(CpuRefreshKind::everything())
@@ -58,6 +59,7 @@ pub fn print_system_status() {
 
 
     println!("====================\n");
+    println!("=== End of System Status Report ===");
 
     use std::io::{self, Write};
     io::stdout().flush().ok();
