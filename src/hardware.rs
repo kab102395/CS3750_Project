@@ -38,25 +38,47 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     };
 
     for entry in paths.flatten() {
-        if let Ok(content) = fs::read_to_string(&entry) {
-            return parse_amdgpu_pm_info(&content);
-        } else {
-            // Try reading with sudo
-            if let Ok(output) = Command::new("sudo")
+        let content_result = fs::read_to_string(&entry).or_else(|_| {
+            // fallback to `sudo cat` if permission denied
+            let output = Command::new("sudo")
                 .arg("cat")
-                .arg(&entry.to_string_lossy().to_string())
-                .output()
-            {
-                if output.status.success() {
-                    let content = String::from_utf8_lossy(&output.stdout);
-                    return parse_amdgpu_pm_info(&content);
+                .arg(entry.to_string_lossy().to_string())
+                .output()?;
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        });
+
+        if let Ok(content) = content_result {
+            let mut util = None;
+            let mut temp = None;
+            let mut sclk = None;
+            let mut mclk = None;
+
+            for line in content.lines() {
+                if line.contains("GPU Load") {
+                    util = line.split_whitespace().nth(2).and_then(|v| v.parse().ok());
+                }
+                if line.contains("GPU Temperature") {
+                    temp = line
+                        .split_whitespace()
+                        .nth(2)
+                        .and_then(|v| v.parse::<u32>().ok())
+                        .map(|v| v as f32);
+                }
+                if line.contains("SCLK") && sclk.is_none() {
+                    sclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
+                }
+                if line.contains("MCLK") && mclk.is_none() {
+                    mclk = line.split_whitespace().nth(0).and_then(|v| v.parse().ok());
                 }
             }
+
+            return (util, temp, sclk, mclk);
         }
     }
 
     (None, None, None, None)
 }
+
 
 fn parse_amdgpu_pm_info(content: &str) -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     let mut util = None;
@@ -163,11 +185,15 @@ fn read_from_debugfs(file: &str, key: &str) -> Option<u32> {
             // Try direct read
             let content_result = fs::read_to_string(&path).or_else(|_| {
                 Command::new("sudo")
-                    .arg("cat")
-                    .arg(&path.to_string_lossy().to_string())
-                    .output()
-                    .ok()
-                    .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+                .arg("cat")
+                .arg(&path.to_string_lossy().to_string())
+                .output()
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("sudo read failed: {e}")))?
+                .stdout
+                .into_iter()
+                .map(|b| b as char)
+                .collect::<String>()
+            
             });
 
             if let Some(content) = content_result {
