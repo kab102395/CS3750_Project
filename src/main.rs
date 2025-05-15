@@ -1,27 +1,21 @@
-mod cli;
-mod status;
-mod modes;
-mod logger;
-mod hardware;
-mod permissions;
-
-use cli::parse_args;
-use permissions::ensure_gpu_permissions;
-use modes::reset_to_default; // ✅ add this
+mod gui; // <-- Add this
 
 fn main() {
-    // Ensure GPU access permissions (udev, groups, debugfs)
-    ensure_gpu_permissions();
-
-    // Parse CLI arguments
+    // Parse CLI args and handle CLI path
     let args = parse_args();
 
-    // Show system status
+    // If no CLI args, launch GUI
+    if !(args.show_status || args.reset || args.log || args.selected_mode.is_some()) {
+        gui::launch_gui().unwrap();
+        return;
+    }
+
+    ensure_gpu_permissions();
+
     if args.show_status {
         status::print_system_status();
     }
 
-    // Apply selected performance mode if provided
     if let Some(mode_str) = args.selected_mode {
         if let Some(mode) = modes::Mode::from_str(&mode_str) {
             modes::apply_mode(&mode);
@@ -30,12 +24,10 @@ fn main() {
         }
     }
 
-    // Reset system to defaults
     if args.reset {
-        reset_to_default(); // ✅ now valid
+        reset_to_default();
     }
 
-    // Log current system metrics to JSON
     if args.log {
         logger::log_system_info();
     }
