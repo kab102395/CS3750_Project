@@ -2,6 +2,8 @@ use eframe::egui;
 use crate::modes::{apply_mode, Mode, reset_to_default};
 use crate::status::print_system_status;
 use crate::logger::log_system_info;
+use libc;
+use std::os::fd::AsRawFd;
 
 pub fn launch_gui() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
