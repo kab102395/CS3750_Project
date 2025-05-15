@@ -38,12 +38,13 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     };
 
     for entry in paths.flatten() {
-        let content_result = fs::read_to_string(&entry).or_else(|_| {
-            // fallback to `sudo cat` if permission denied
+        let content_result: Result<String, std::io::Error> = fs::read_to_string(&entry).or_else(|_| {
             let output = Command::new("sudo")
                 .arg("cat")
-                .arg(entry.to_string_lossy().to_string())
-                .output()?;
+                .arg(&entry.to_string_lossy().to_string())
+                .output()
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("sudo read failed: {e}")))?;
+
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         });
 
@@ -78,6 +79,7 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
 
     (None, None, None, None)
 }
+
 
 
 fn parse_amdgpu_pm_info(content: &str) -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
