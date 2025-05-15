@@ -32,23 +32,42 @@ fn detect_gpu_vendor() -> Option<String> {
 }
 
 /// Reads AMD GPU info from debugfs, falling back to `sudo cat` if needed.
+use std::fs;
+use std::io::{self, Error, ErrorKind};
+use std::path::PathBuf;
+use std::process::Command;
+use glob::glob;
+
+/// Reads AMD GPU info from debugfs, falling back to `sudo cat` if permission denied.
 pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     let pattern = "/sys/kernel/debug/dri/*/amdgpu_pm_info";
-    let paths_result: Result<Vec<_>, glob::GlobError> = glob(pattern)
-        .map(|glob_iter| glob_iter.collect());
+    let mut paths: Vec<PathBuf> = vec![];
 
-    let paths: Vec<_> = match paths_result {
-        Ok(p) => p.into_iter().flatten().collect(),
+    match glob(pattern) {
+        Ok(entries) => {
+            for entry in entries {
+                if let Ok(path) = entry {
+                    paths.push(path);
+                }
+            }
+        }
         Err(_) => return (None, None, None, None),
-    };
+    }
 
-    for entry in paths {
-        let content_result: Result<String, io::Error> = fs::read_to_string(&entry).or_else(|_| {
+    for path in paths {
+        let content_result: Result<String, Error> = fs::read_to_string(&path).or_else(|_| {
             let output = Command::new("sudo")
                 .arg("cat")
-                .arg(entry.to_string_lossy().to_string())
+                .arg(&path.to_string_lossy().to_string())
                 .output()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("sudo read failed: {e}")))?;
+                .map_err(|e| Error::new(ErrorKind::Other, format!("sudo read failed: {e}")))?;
+
+            if !output.status.success() {
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    format!("sudo cat failed: {:?}", output.status),
+                ));
+            }
 
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         });
@@ -61,10 +80,7 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
 
             for line in content.lines() {
                 if line.contains("GPU Load") {
-                    util = line
-                        .split_whitespace()
-                        .nth(2)
-                        .and_then(|v| v.parse::<u32>().ok());
+                    util = line.split_whitespace().nth(2).and_then(|v| v.parse::<u32>().ok());
                 }
                 if line.contains("GPU Temperature") {
                     temp = line
@@ -74,16 +90,10 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
                         .map(|v| v as f32);
                 }
                 if line.contains("SCLK") && sclk.is_none() {
-                    sclk = line
-                        .split_whitespace()
-                        .nth(0)
-                        .and_then(|v| v.parse::<u32>().ok());
+                    sclk = line.split_whitespace().nth(0).and_then(|v| v.parse::<u32>().ok());
                 }
                 if line.contains("MCLK") && mclk.is_none() {
-                    mclk = line
-                        .split_whitespace()
-                        .nth(0)
-                        .and_then(|v| v.parse::<u32>().ok());
+                    mclk = line.split_whitespace().nth(0).and_then(|v| v.parse::<u32>().ok());
                 }
             }
 
@@ -93,6 +103,7 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
 
     (None, None, None, None)
 }
+
 
 
 
