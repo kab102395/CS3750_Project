@@ -54,9 +54,10 @@ impl eframe::App for DeckOptimizerGui {
             ui.separator();
             if ui.button("Show System Status").clicked() {
                 // Redirect stdout to a buffer for GUI
-                let output = capture_stdout(|| {
+                let output = capture_stdout_threaded(|| {
                     print_system_status();
                 });
+                
                 self.status_output = output;
             }
 
@@ -79,27 +80,37 @@ impl eframe::App for DeckOptimizerGui {
 }
 
 // Utility function to capture stdout temporarily for displaying logs in GUI
-fn capture_stdout<F: FnOnce() + Send + 'static>(func: F) -> String {
-    use std::io::Read;
-    use os_pipe::pipe;
-    use std::thread;
-
+fn capture_stdout_threaded<F: FnOnce() + Send + 'static>(f: F) -> String {
     let (reader, writer) = pipe().unwrap();
-    let stdout = std::io::stdout();
-    let stdout_lock = stdout.lock();
-    let saved = stdout_lock.as_raw_fd();
     let writer_fd = writer.as_raw_fd();
+    let saved_fd = std::io::stdout().as_raw_fd();
 
+    // Duplicate original stdout to restore later
+    let saved = unsafe { libc::dup(saved_fd) };
+
+    // Redirect stdout to writer
     unsafe {
-        libc::dup2(writer_fd, saved);
+        libc::dup2(writer_fd, saved_fd);
     }
 
-    let handle = thread::spawn(func);
+    let handle = thread::spawn(f);
 
-    drop(writer); // Close writer to avoid blocking
+    // Close the writer in this thread so the reader sees EOF
+    drop(writer);
+
     let mut output = String::new();
-    reader.take(64 * 1024).read_to_string(&mut output).unwrap();
-    handle.join().unwrap();
+    reader
+        .take(10_000)
+        .read_to_string(&mut output)
+        .unwrap_or_default();
+
+    handle.join().ok();
+
+    // Restore original stdout
+    unsafe {
+        libc::dup2(saved, saved_fd);
+        libc::close(saved);
+    }
 
     output
 }
