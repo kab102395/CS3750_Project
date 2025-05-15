@@ -58,6 +58,9 @@ pub fn print_system_status() {
 
 
     println!("====================\n");
+
+    use std::io::{self, Write};
+    io::stdout().flush().ok();
 }
 
 pub fn read_proc_stat() -> Option<(u64, u64)> {
