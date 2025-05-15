@@ -4,6 +4,8 @@ use crate::status::print_system_status;
 use crate::logger::log_system_info;
 use libc;
 use std::os::fd::AsRawFd;
+use std::thread;
+use nix::unistd::pipe;
 
 pub fn launch_gui() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
