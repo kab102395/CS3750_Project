@@ -64,21 +64,18 @@ impl eframe::App for DeckOptimizerGui {
             ui.separator();
             if ui.button("Show System Status").clicked() && !self.status_requested {
                 self.status_requested = true;
-
-                let tx = std::sync::mpsc::channel();
-                let sender = tx.0;
+            
+                let (sender, receiver) = std::sync::mpsc::channel();
                 std::thread::spawn(move || {
-                    print_system_status();
+                    let output = capture_stdout_threaded(|| {
+                        print_system_status();
+                    });
+                    let _ = sender.send(output);
                 });
-                // Redirect stdout to a buffer for GUI
-                sender.send(output).ok();
-                });
-                
-                let rx = tx.1;
-                ctx.request_repaint();
-
-                self.status_receiver = Some(rx);
+            
+                self.status_receiver = Some(receiver);
             }
+            
 
             if let Some(ref rx) = self.status_receiver {
                 if let Ok(output) = rx.try_recv() {
