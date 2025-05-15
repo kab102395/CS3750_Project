@@ -14,9 +14,9 @@ pub fn parse_args() -> CliArgs {
         .about("Optimizes Steam Deck performance settings")
         .arg(
             Arg::new("status")
-            .long("status")
-            .help("Displays current system resource usage")
-            .action(ArgAction::SetTrue),
+                .long("status")
+                .help("Displays current system resource usage")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("mode")
@@ -40,15 +40,8 @@ pub fn parse_args() -> CliArgs {
 
     CliArgs {
         show_status: matches.get_flag("status"),
-        selected_mode: matches
-            .get_one::<String>("mode")
-            .map(|s| s.to_string()),
-        reset:matches.get_flag("reset"),
+        selected_mode: matches.get_one::<String>("mode").cloned(),
+        reset: matches.get_flag("reset"),
         log: matches.get_flag("log"),
     }
-}
-
-
-fn main() {
-
 }
