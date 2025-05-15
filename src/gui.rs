@@ -6,6 +6,8 @@ use libc;
 use std::os::fd::AsRawFd;
 use std::thread;
 use nix::unistd::pipe;
+use std::fs::File;
+use std::io::Read;
 
 pub fn launch_gui() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
@@ -91,9 +93,14 @@ fn capture_stdout_threaded<F: FnOnce() + Send + 'static>(f: F) -> String {
     let saved = unsafe { libc::dup(saved_fd) };
 
     // Redirect stdout to writer
+    use std::io::Write; // Add to your imports if not already
+
+    let _ = std::io::stdout().flush(); // ⬅️ ADD THIS
+
     unsafe {
         libc::dup2(writer_fd, saved_fd);
     }
+
 
     let handle = thread::spawn(f);
 
@@ -101,10 +108,10 @@ fn capture_stdout_threaded<F: FnOnce() + Send + 'static>(f: F) -> String {
     drop(writer);
 
     let mut output = String::new();
-    reader
-        .take(10_000)
-        .read_to_string(&mut output)
-        .unwrap_or_default();
+    let mut reader_file = unsafe { File::from_raw_fd(reader) };
+    let _ = reader_file.read_to_string(&mut output);
+
+
 
     handle.join().ok();
 
