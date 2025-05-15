@@ -2,12 +2,12 @@ mod cli;
 mod status;
 mod modes;
 mod logger;
-mod reset;
 mod hardware;
 mod permissions;
 
 use cli::parse_args;
 use permissions::ensure_gpu_permissions;
+use modes::reset_to_default; // ✅ add this
 
 fn main() {
     // Ensure GPU access permissions (udev, groups, debugfs)
@@ -32,7 +32,7 @@ fn main() {
 
     // Reset system to defaults
     if args.reset {
-        reset::reset_to_default();
+        reset_to_default(); // ✅ now valid
     }
 
     // Log current system metrics to JSON

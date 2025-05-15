@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::io::Write;
 
 pub enum Mode {
     BatterySaver,
