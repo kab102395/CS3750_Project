@@ -23,7 +23,12 @@ pub fn launch_gui() -> eframe::Result<()> {
 struct DeckOptimizerGui {
     status_output: String,
     selected_mode: Option<Mode>,
+    status_requested: bool,
+    status_result: Option<String>,
+    status_receiver: Option<std::sync::mpsc::Receiver<String>>,
 }
+
+
 
 impl eframe::App for DeckOptimizerGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -57,13 +62,30 @@ impl eframe::App for DeckOptimizerGui {
 
             // --- Actions ---
             ui.separator();
-            if ui.button("Show System Status").clicked() {
-                // Redirect stdout to a buffer for GUI
-                let output = capture_stdout_threaded(|| {
+            if ui.button("Show System Status").clicked() && !self.status_requested {
+                self.status_requested = true;
+
+                let tx = std::sync::mpsc::channel();
+                let sender = tx.0;
+                std::thread::spawn(move || {
                     print_system_status();
                 });
+                // Redirect stdout to a buffer for GUI
+                sender.send(output).ok();
+                });
                 
-                self.status_output = output;
+                let rx = tx.1;
+                ctx.request_repaint();
+
+                self.status_receiver = Some(rx);
+            }
+
+            if let Some(ref rx) = self.status_receiver {
+                if let Ok(output) = rx.try_recv() {
+                    self.status_output = output;
+                    self.status_receiver = None;
+                    self.status_requested = false;
+                }
             }
 
             if ui.button("Reset to Default").clicked() {
