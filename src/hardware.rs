@@ -38,17 +38,19 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
     };
 
     for entry in paths.flatten() {
-        let content_result: Result<String, std::io::Error> = fs::read_to_string(&entry).or_else(|_| {
-            let output = Command::new("sudo")
+        // Try normal read
+        let content = fs::read_to_string(&entry).or_else(|_| {
+            // If failed (likely permission), try using `sudo`
+            Command::new("sudo")
                 .arg("cat")
-                .arg(&entry.to_string_lossy().to_string())
+                .arg(entry.to_string_lossy().to_string())
                 .output()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("sudo read failed: {e}")))?;
-
-            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+                .ok()
+                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Failed to read with sudo"))
         });
 
-        if let Ok(content) = content_result {
+        if let Ok(content) = content {
             let mut util = None;
             let mut temp = None;
             let mut sclk = None;
