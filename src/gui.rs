@@ -9,6 +9,7 @@ use nix::unistd::pipe;
 use std::fs::File;
 use std::io::Read;
 use std::os::fd::FromRawFd;
+use std::io::Write;
 
 pub fn launch_gui() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
