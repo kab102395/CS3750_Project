@@ -44,10 +44,9 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
                 .arg(&entry.to_string_lossy().to_string())
                 .output()
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("sudo read failed: {e}")))?;
-        
+
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         });
-        
 
         if let Ok(content) = content_result {
             let mut util = None;
@@ -80,6 +79,7 @@ pub fn read_amd_gpu() -> (Option<u32>, Option<f32>, Option<u32>, Option<u32>) {
 
     (None, None, None, None)
 }
+
 
 
 
