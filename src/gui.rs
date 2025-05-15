@@ -82,6 +82,9 @@ impl eframe::App for DeckOptimizerGui {
                     self.status_output = output;
                     self.status_receiver = None;
                     self.status_requested = false;
+                } else {
+                    ui.label("Fetching system status...");
+                    ctx.request_repaint();
                 }
             }
 
