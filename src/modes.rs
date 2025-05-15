@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::io::Write;
 
+#[derive(Debug)]
 pub enum Mode {
     BatterySaver,
     Balanced,

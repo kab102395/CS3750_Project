@@ -77,16 +77,27 @@ impl eframe::App for DeckOptimizerGui {
 }
 
 // Utility function to capture stdout temporarily for displaying logs in GUI
-fn capture_stdout<F: FnOnce()>(f: F) -> String {
+fn capture_stdout<F: FnOnce() + Send + 'static>(func: F) -> String {
     use std::io::Read;
-    let mut buf = Vec::new();
-    let (r, w) = os_pipe::pipe().unwrap();
+    use os_pipe::pipe;
+    use std::thread;
+
+    let (reader, writer) = pipe().unwrap();
     let stdout = std::io::stdout();
     let stdout_lock = stdout.lock();
-    let old = std::io::set_output_capture(Some(Box::new(w)));
-    f();
-    std::io::set_output_capture(old);
-    drop(stdout_lock);
-    r.take(10_000).read_to_end(&mut buf).unwrap();
-    String::from_utf8_lossy(&buf).into()
+    let saved = stdout_lock.as_raw_fd();
+    let writer_fd = writer.as_raw_fd();
+
+    unsafe {
+        libc::dup2(writer_fd, saved);
+    }
+
+    let handle = thread::spawn(func);
+
+    drop(writer); // Close writer to avoid blocking
+    let mut output = String::new();
+    reader.take(64 * 1024).read_to_string(&mut output).unwrap();
+    handle.join().unwrap();
+
+    output
 }
