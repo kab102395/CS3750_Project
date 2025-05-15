@@ -118,27 +118,32 @@ impl eframe::App for DeckOptimizerGui {
 fn capture_stdout_threaded<F: FnOnce()>(f: F) -> String {
     let (reader, writer) = pipe().unwrap();
     let writer_fd = writer.as_raw_fd();
-    let saved_fd = std::io::stdout().as_raw_fd();
+    let saved_stdout_fd = std::io::stdout().as_raw_fd();
+    let saved_stderr_fd = std::io::stderr().as_raw_fd();
 
-    use std::io::Write;
     let _ = std::io::stdout().flush();
+    let _ = std::io::stderr().flush();
 
-    let saved = unsafe { libc::dup(saved_fd) };
+    let saved_stdout = unsafe { libc::dup(saved_stdout_fd) };
+    let saved_stderr = unsafe { libc::dup(saved_stderr_fd) };
+
     println!("[DEBUG] Inside print_system_status");
 
     unsafe {
-        libc::dup2(writer_fd, saved_fd);
+        libc::dup2(writer_fd, saved_stdout_fd);
+        libc::dup2(writer_fd, saved_stderr_fd); // ⬅️ Redirect stderr too
     }
 
-    // ✅ Run `f()` directly here in this thread!
-    f();
+    f(); // Run your function now
 
     unsafe {
-        libc::dup2(saved, saved_fd);
-        libc::close(saved);
+        libc::dup2(saved_stdout, saved_stdout_fd);
+        libc::close(saved_stdout);
+        libc::dup2(saved_stderr, saved_stderr_fd);
+        libc::close(saved_stderr);
     }
 
-    drop(writer); // Ensure writer is dropped so reader gets EOF
+    drop(writer); // Writer closed so reader gets EOF
 
     let mut output = String::new();
     let mut reader_file = unsafe { File::from_raw_fd(reader) };
