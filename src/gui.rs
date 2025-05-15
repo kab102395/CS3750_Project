@@ -67,27 +67,34 @@ impl eframe::App for DeckOptimizerGui {
             
                 let (sender, receiver) = std::sync::mpsc::channel();
                 std::thread::spawn(move || {
-                    // Setup the redirection INSIDE the thread
                     let output = capture_stdout_threaded(print_system_status);
                     let _ = sender.send(output);
                 });
-                
             
                 self.status_receiver = Some(receiver);
             }
             
-
+            // ✅ Now properly handle received data
             if let Some(ref rx) = self.status_receiver {
-                if let Ok(output) = rx.try_recv() {
-                    self.status_output = output;
-                    self.status_receiver = None;
-                    self.status_requested = false;
-                } else {
-                    ui.label("Fetching system status...");
-                    ctx.request_repaint();
-                    println!("[DEBUG] capture_stdout_threaded executing...");
+                match rx.try_recv() {
+                    Ok(output) => {
+                        self.status_output = output;
+                        self.status_receiver = None;
+                        self.status_requested = false;
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                        // Still waiting
+                        ui.label("Fetching system status...");
+                        ctx.request_repaint(); // ❗ Only request when waiting
+                    }
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                        self.status_output = "[Error] Failed to receive system status.".into();
+                        self.status_receiver = None;
+                        self.status_requested = false;
+                    }
                 }
             }
+            
 
             if ui.button("Reset to Default").clicked() {
                 reset_to_default();
