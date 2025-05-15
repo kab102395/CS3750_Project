@@ -82,7 +82,7 @@ fn collect_amdgpu_stats() -> io::Result<AMDGPUStats> {
                         if let Some(percent_str) = line.split_whitespace().nth(2) {
                             dbg_gpu_util = percent_str.parse::<u32>().ok();
                         }
-                    } else if line.starts_With("MEM Load") {
+                    } else if line.starts_with("MEM Load") {
                         if let Some(percent_str) = line.split_whitespace().nth(2) {
                             dbg_vram_util = percent_str.parse::<u32>().ok();
                         }
