@@ -85,6 +85,7 @@ impl eframe::App for DeckOptimizerGui {
                 } else {
                     ui.label("Fetching system status...");
                     ctx.request_repaint();
+                    println!("[DEBUG] capture_stdout_threaded executing...");
                 }
             }
 
