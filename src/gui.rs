@@ -108,42 +108,35 @@ impl eframe::App for DeckOptimizerGui {
 }
 
 // Utility function to capture stdout temporarily for displaying logs in GUI
-fn capture_stdout_threaded<F: FnOnce() + Send + 'static>(f: F) -> String {
+fn capture_stdout_threaded<F: FnOnce()>(f: F) -> String {
     let (reader, writer) = pipe().unwrap();
     let writer_fd = writer.as_raw_fd();
     let saved_fd = std::io::stdout().as_raw_fd();
 
-    // Duplicate original stdout to restore later
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+
     let saved = unsafe { libc::dup(saved_fd) };
-
-    // Redirect stdout to writer
-    use std::io::Write; // Add to your imports if not already
-
-    let _ = std::io::stdout().flush(); // ⬅️ ADD THIS
+    println!("[DEBUG] Inside print_system_status");
 
     unsafe {
         libc::dup2(writer_fd, saved_fd);
     }
 
+    // ✅ Run `f()` directly here in this thread!
+    f();
 
-    let handle = thread::spawn(f);
-
-    // Close the writer in this thread so the reader sees EOF
-    drop(writer);
-
-    let mut output = String::new();
-    let mut reader_file = unsafe { File::from_raw_fd(reader) };
-    let _ = reader_file.read_to_string(&mut output);
-
-
-
-    handle.join().ok();
-
-    // Restore original stdout
     unsafe {
         libc::dup2(saved, saved_fd);
         libc::close(saved);
     }
 
+    drop(writer); // Ensure writer is dropped so reader gets EOF
+
+    let mut output = String::new();
+    let mut reader_file = unsafe { File::from_raw_fd(reader) };
+    let _ = reader_file.read_to_string(&mut output);
+
     output
 }
+
