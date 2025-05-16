@@ -1,0 +1,93 @@
+   Compiling CS3750_Project v0.1.0 (/home/kyle/Desktop/Documents/CS3750_Project)
+warning: unused import: `read_proc_stat`
+ --> src/logger.rs:9:47
+  |
+9 | use crate::status::{calculate_proc_cpu_usage, read_proc_stat}; // Use the same logic
+  |                                               ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `OpenOptions`
+ --> src/permissions.rs:1:21
+  |
+1 | use std::fs::{self, OpenOptions};
+  |                     ^^^^^^^^^^^
+
+warning: unused import: `std::path::Path`
+ --> src/hardware.rs:4:5
+  |
+4 | use std::path::Path;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `std::thread`
+ --> src/gui.rs:7:5
+  |
+7 | use std::thread;
+  |     ^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+  --> src/hardware.rs:55:15
+   |
+55 |     if let Ok(mut glob_iter) = glob("/sys/kernel/debug/dri/*/amdgpu_pm_info") {
+   |               ----^^^^^^^^^
+   |               |
+   |               help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: function `read_u32_from_file` is never used
+  --> src/logger.rs:92:4
+   |
+92 | fn read_u32_from_file(path: &str) -> Option<u32> {
+   |    ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `read_hwmon_temp` is never used
+   --> src/logger.rs:100:4
+    |
+100 | fn read_hwmon_temp() -> Option<f32> {
+    |    ^^^^^^^^^^^^^^^
+
+warning: field `status_result` is never read
+  --> src/gui.rs:28:5
+   |
+24 | struct DeckOptimizerGui {
+   |        ---------------- field in this struct
+...
+28 |     status_result: Option<String>,
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `DeckOptimizerGui` has a derived impl for the trait `Default`, but this is intentionally ignored during dead code analysis
+
+warning: calls to `std::mem::drop` with a value that implements `Copy` does nothing
+   --> src/gui.rs:152:5
+    |
+152 |     drop(writer); // ✅ DO THIS BEFORE reading from the pipe to signal EOF
+    |     ^^^^^------^
+    |          |
+    |          argument has type `i32`
+    |
+    = note: `#[warn(dropping_copy_types)]` on by default
+help: use `let _ = ...` to ignore the expression or result
+    |
+152 -     drop(writer); // ✅ DO THIS BEFORE reading from the pipe to signal EOF
+152 +     let _ = writer; // ✅ DO THIS BEFORE reading from the pipe to signal EOF
+    |
+
+warning: `CS3750_Project` (bin "CS3750_Project") generated 9 warnings (run `cargo fix --bin "CS3750_Project"` to apply 5 suggestions)
+    Finished `release` profile [optimized] target(s) in 2.55s
+     Running `target/release/CS3750_Project`
+/sys/kernel/debug is a mountpoint
+[Mode] Available governors: ["performance", "powersave"]
+[Mode] Applying Battery Saver mode with 'powersave'...
+powersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersave[Mode] Available governors: ["performance", "powersave"]
+[Mode] No suitable governor found for the selected mode.
+[Mode] Available governors: ["performance", "powersave"]
+[Mode] Applying Performance mode with 'performance'...
+performanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformance[Reset] Reverting system settings to default mode...
+[Reset] Available governors on this system: ["performance", "powersave"]
+powersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersavepowersave[Reset] CPU governor set to 'powersave'.
+[Mode] Available governors: ["performance", "powersave"]
+[Mode] Applying Performance mode with 'performance'...
+performanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceperformanceSystem info loffed at timestamp: 1747352729
