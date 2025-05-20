@@ -61,7 +61,10 @@ impl eframe::App for DeckOptimizerGui {
 
                 let (sender, receiver) = mpsc::channel();
                 thread::spawn(move || {
-                    let output = read_latest_log().unwrap_or_else(|e| format!("[Error] Failed to read log: {e}"));
+                    let output = read_latest_log().unwrap_or_else(|e| {
+    format!("[Error] Failed to read log: {}", e)
+});
+
                     let _ = sender.send(output);
                 });
 
