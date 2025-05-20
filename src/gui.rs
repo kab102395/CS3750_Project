@@ -1,15 +1,13 @@
 use eframe::egui;
 use crate::modes::{apply_mode, Mode, reset_to_default};
-use crate::status::print_system_status;
-use crate::logger::log_system_info;
+use crate::logger::{log_system_info, read_latest_log}; // <- new import
 use libc;
 use std::os::fd::AsRawFd;
-use std::thread;
-use nix::unistd::pipe;
 use std::fs::File;
 use std::io::Read;
 use std::os::fd::FromRawFd;
-use std::io::Write;
+use std::sync::mpsc;
+use std::thread;
 
 pub fn launch_gui() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
@@ -26,10 +24,8 @@ struct DeckOptimizerGui {
     selected_mode: Option<Mode>,
     status_requested: bool,
     status_result: Option<String>,
-    status_receiver: Option<std::sync::mpsc::Receiver<String>>,
+    status_receiver: Option<mpsc::Receiver<String>>,
 }
-
-
 
 impl eframe::App for DeckOptimizerGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -40,17 +36,14 @@ impl eframe::App for DeckOptimizerGui {
             ui.separator();
             ui.horizontal(|ui| {
                 ui.label("Select Mode:");
-
                 if ui.button("Battery Saver").clicked() {
                     apply_mode(&Mode::BatterySaver);
                     self.selected_mode = Some(Mode::BatterySaver);
                 }
-
                 if ui.button("Balanced").clicked() {
                     apply_mode(&Mode::Balanced);
                     self.selected_mode = Some(Mode::Balanced);
                 }
-
                 if ui.button("Performance").clicked() {
                     apply_mode(&Mode::Performance);
                     self.selected_mode = Some(Mode::Performance);
@@ -65,44 +58,34 @@ impl eframe::App for DeckOptimizerGui {
             ui.separator();
             if ui.button("Show System Status").clicked() && !self.status_requested {
                 self.status_requested = true;
-            
-                let (sender, receiver) = std::sync::mpsc::channel();
-                std::thread::spawn(move || {
-                    let output = capture_stdout_threaded(print_system_status);
+
+                let (sender, receiver) = mpsc::channel();
+                thread::spawn(move || {
+                    let output = read_latest_log().unwrap_or_else(|e| format!("[Error] Failed to read log: {e}"));
                     let _ = sender.send(output);
                 });
-            
+
                 self.status_receiver = Some(receiver);
             }
-            
-            // ✅ Now properly handle received data
+
             if let Some(ref rx) = self.status_receiver {
                 match rx.try_recv() {
                     Ok(output) => {
-                        if output.trim().is_empty() {
-                            self.status_output = "[Warning] Status captured no output.".into();
-                        } else {
-                            self.status_output = output;
-                        }
-                        println!("[DEBUG] Received system output (len={}):", self.status_output.len());
-                        println!("{}", self.status_output);
+                        self.status_output = output;
                         self.status_receiver = None;
                         self.status_requested = false;
                     }
-                    Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    Err(mpsc::TryRecvError::Empty) => {
                         ui.label("Fetching system status...");
-                        ctx.request_repaint(); // keep GUI responsive
+                        ctx.request_repaint();
                     }
                     Err(e) => {
-                        self.status_output = format!("[Error] Channel disconnected: {e}");
-                        println!("[DEBUG] Channel error: {e}");
+                        self.status_output = format!("[Error] Channel error: {e}");
                         self.status_receiver = None;
                         self.status_requested = false;
                     }
                 }
             }
-            
-            
 
             if ui.button("Reset to Default").clicked() {
                 reset_to_default();
@@ -121,40 +104,3 @@ impl eframe::App for DeckOptimizerGui {
         });
     }
 }
-
-// Utility function to capture stdout temporarily for displaying logs in GUI
-fn capture_stdout_threaded<F: FnOnce()>(f: F) -> String {
-    let (reader, writer) = pipe().unwrap();
-    let writer_fd = writer.as_raw_fd();
-    let saved_stdout_fd = std::io::stdout().as_raw_fd();
-    let saved_stderr_fd = std::io::stderr().as_raw_fd();
-
-    let _ = std::io::stdout().flush();
-    let _ = std::io::stderr().flush();
-
-    let saved_stdout = unsafe { libc::dup(saved_stdout_fd) };
-    let saved_stderr = unsafe { libc::dup(saved_stderr_fd) };
-
-    unsafe {
-        libc::dup2(writer_fd, saved_stdout_fd);
-        libc::dup2(writer_fd, saved_stderr_fd);
-    }
-
-    f(); // Execute the system status printing
-
-    unsafe {
-        libc::dup2(saved_stdout, saved_stdout_fd);
-        libc::close(saved_stdout);
-        libc::dup2(saved_stderr, saved_stderr_fd);
-        libc::close(saved_stderr);
-    }
-
-    drop(writer); // ✅ DO THIS BEFORE reading from the pipe to signal EOF
-
-    let mut output = String::new();
-    let mut reader_file = unsafe { File::from_raw_fd(reader) };
-    let _ = reader_file.read_to_string(&mut output); // ✅ Now it won’t hang
-
-    output
-}
-

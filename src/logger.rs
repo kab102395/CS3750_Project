@@ -2,7 +2,9 @@ use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-
+use std::fs;
+use std::path::Path;
+use serde_json::Value;
 use serde::Serialize;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
 
@@ -109,4 +111,26 @@ fn read_hwmon_temp() -> Option<f32> {
         }
     }
     None
+}
+
+
+
+/// Read and pretty-print the most recent system log.
+pub fn read_most_recent_log_pretty() -> Option<String> {
+    let log_dir = Path::new("logs");
+    if !log_dir.exists() {
+        return None;
+    }
+
+    let mut entries = fs::read_dir(log_dir).ok()?
+        .filter_map(Result::ok)
+        .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+        .collect::<Vec<_>>();
+
+    entries.sort_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
+    let latest = entries.pop()?;
+
+    let raw = fs::read_to_string(latest.path()).ok()?;
+    let parsed: Value = serde_json::from_str(&raw).ok()?;
+    serde_json::to_string_pretty(&parsed).ok()
 }
