@@ -116,7 +116,13 @@ impl eframe::App for DeckOptimizerGui {
             // --- Status Output ---
             ui.separator();
             ui.label("System Status Output:");
-            egui::ScrollArea::vertical().show(ui, |ui| {
+           let available_height = ui.available_height() * 0.5;
+            egui::ScrollArea::vertical()
+                .max_height(available_height)
+                .auto_shrink([false; 2])
+                .show(ui, |ui| {
+
+
                 ui.label(&self.status_output);
             });
 
