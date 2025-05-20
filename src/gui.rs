@@ -136,7 +136,19 @@ impl eframe::App for DeckOptimizerGui {
             ui.separator();
             ui.heading("Detected Games");
 
-            egui::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Detect Installed Games").clicked() {
+                    self.discovered_games = crate::games::discover_all_games();
+                }
+            });
+
+            ui.separator();
+
+            let scroll_frame = egui::ScrollArea::vertical()
+                .auto_shrink([false; 2])
+                .max_height(300.0); // Constrain height for scroll
+
+            scroll_frame.show(ui, |ui| {
                 for game in &self.discovered_games {
                     ui.group(|ui| {
                         ui.horizontal(|ui| {
@@ -149,7 +161,6 @@ impl eframe::App for DeckOptimizerGui {
                                             Default::default(),
                                         );
                                         ui.add(egui::Image::new(&tex).fit_to_exact_size(egui::Vec2::new(64.0, 64.0)));
-
                                     }
                                 }
                             } else {
@@ -161,13 +172,13 @@ impl eframe::App for DeckOptimizerGui {
                                 ui.label(format!("Source: {}", game.source));
                                 if ui.button("Set Optimizations").clicked() {
                                     println!("Optimizations applied for: {}", game.name);
-                                    // TODO: Trigger per-game tuning here
+                                    // TODO: Trigger per-game tuning
                                 }
                             });
                         });
                     });
                 }
             });
-        });
+        }
     }
 }
