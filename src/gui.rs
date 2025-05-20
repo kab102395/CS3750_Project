@@ -33,11 +33,15 @@ struct DeckOptimizerGui {
 impl Default for DeckOptimizerGui {
     fn default() -> Self {
         Self {
-            discovered_games: discover_all_games(),
-            ..Default::default()
+            status_output: String::new(),
+            selected_mode: None,
+            status_requested: false,
+            status_result: None,
+            status_receiver: None,
         }
     }
 }
+
 
 impl eframe::App for DeckOptimizerGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -124,7 +128,7 @@ impl eframe::App for DeckOptimizerGui {
                         ui.horizontal(|ui| {
                             if let Some(img_path) = &game.cover_image {
                                 if let Ok(img_data) = std::fs::read(img_path) {
-                                    if let Ok(image) = egui_extras::image::load_image_bytes(img_path, &img_data) {
+                                    if let Ok(image) = egui_extras::image::load_image_bytes(&img_data) {
                                         let tex = ctx.load_texture(
                                             &game.name,
                                             image,
