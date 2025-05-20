@@ -20,7 +20,7 @@ pub fn launch_gui() -> eframe::Result<()> {
     )
 }
 
-#[derive(Default)]
+
 struct DeckOptimizerGui {
     status_output: String,
     selected_mode: Option<Mode>,
@@ -130,7 +130,8 @@ impl eframe::App for DeckOptimizerGui {
                                             image,
                                             Default::default(),
                                         );
-                                        ui.image(&tex, [64.0, 64.0]);
+                                        ui.add(egui::Image::new(&tex).fit_to_exact_size(egui::Vec2::new(64.0, 64.0)));
+
                                     }
                                 }
                             } else {
