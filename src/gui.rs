@@ -27,6 +27,16 @@ struct DeckOptimizerGui {
     status_requested: bool,
     status_result: Option<String>,
     status_receiver: Option<mpsc::Receiver<String>>,
+    discovered_games: Vec<GameInfo>,
+}
+
+impl Default for DeckOptimizerGui {
+    fn default() -> Self {
+        Self {
+            discovered_games: discover_all_games(),
+            ..Default::default()
+        }
+    }
 }
 
 impl eframe::App for DeckOptimizerGui {
@@ -64,7 +74,6 @@ impl eframe::App for DeckOptimizerGui {
                 let (sender, receiver) = mpsc::channel();
                 thread::spawn(move || {
                     let output = read_latest_log().unwrap_or("[Error] No logs found.".to_string());
-
                     let _ = sender.send(output);
                 });
 
@@ -103,6 +112,42 @@ impl eframe::App for DeckOptimizerGui {
             ui.label("System Status Output:");
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.label(&self.status_output);
+            });
+
+            // --- Game Detection Section ---
+            ui.separator();
+            ui.heading("Detected Games");
+
+            egui::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+                for game in &self.discovered_games {
+                    ui.group(|ui| {
+                        ui.horizontal(|ui| {
+                            if let Some(img_path) = &game.cover_image {
+                                if let Ok(img_data) = std::fs::read(img_path) {
+                                    if let Ok(image) = egui_extras::image::load_image_bytes(img_path, &img_data) {
+                                        let tex = ctx.load_texture(
+                                            &game.name,
+                                            image,
+                                            Default::default(),
+                                        );
+                                        ui.image(&tex, [64.0, 64.0]);
+                                    }
+                                }
+                            } else {
+                                ui.label("[No Cover]");
+                            }
+
+                            ui.vertical(|ui| {
+                                ui.label(format!("🎮 {}", game.name));
+                                ui.label(format!("Source: {}", game.source));
+                                if ui.button("Set Optimizations").clicked() {
+                                    println!("Optimizations applied for: {}", game.name);
+                                    // TODO: Trigger per-game tuning here
+                                }
+                            });
+                        });
+                    });
+                }
             });
         });
     }
