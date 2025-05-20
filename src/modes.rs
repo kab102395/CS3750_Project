@@ -3,20 +3,21 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::io::Write;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Mode {
     BatterySaver,
     Balanced,
     Performance,
+    Custom(String),
 }
 
 impl Mode {
     pub fn from_str(name: &str) -> Option<Mode> {
         match name.to_lowercase().as_str() {
-            "saver" | "battery" => Some(Mode::BatterySaver),
+            "battery" | "saver" => Some(Mode::BatterySaver),
             "balanced" => Some(Mode::Balanced),
             "performance" => Some(Mode::Performance),
-            _ => None,
+            other => Some(Mode::Custom(other.to_string())),
         }
     }
 }
@@ -25,71 +26,83 @@ pub fn apply_mode(mode: &Mode) {
     let available_governors = get_available_governors();
     println!("[Mode] Available governors: {:?}", available_governors);
 
-    match mode {
-        Mode::BatterySaver => {
-            for g in ["powersave", "schedutil"].iter() {
-                if available_governors.contains(&g.to_string()) {
-                    println!("[Mode] Applying Battery Saver mode with '{}'...", g);
-                    set_cpu_governor(g);
-                    return;
-                }
+    let picked = match mode {
+        Mode::BatterySaver => find_first_match(&available_governors, &["powersave", "schedutil"]),
+        Mode::Balanced => find_first_match(&available_governors, &["ondemand", "schedutil"]),
+        Mode::Performance => find_first_match(&available_governors, &["performance"]),
+        Mode::Custom(name) => {
+            if available_governors.contains(name) {
+                Some(name.clone())
+            } else {
+                eprintln!("[Mode] Governor '{}' is not supported on this system.", name);
+                None
             }
         }
-        Mode::Balanced => {
-            for g in ["ondemand", "schedutil"].iter() {
-                if available_governors.contains(&g.to_string()) {
-                    println!("[Mode] Applying Balanced mode with '{}'...", g);
-                    set_cpu_governor(g);
-                    return;
-                }
-            }
-        }
-        Mode::Performance => {
-            if available_governors.contains(&"performance".to_string()) {
-                println!("[Mode] Applying Performance mode with 'performance'...");
-                set_cpu_governor("performance");
-                return;
-            }
+    };
+
+    if let Some(governor) = picked {
+        println!("[Mode] Applying governor: {}", governor);
+        set_cpu_governor(&governor);
+    } else {
+        eprintln!("[Mode] No compatible governor found for the selected mode.");
+    }
+}
+
+fn find_first_match(available: &[String], preferred: &[&str]) -> Option<String> {
+    for p in preferred {
+        if available.contains(&p.to_string()) {
+            return Some(p.to_string());
         }
     }
-
-    eprintln!("[Mode] No suitable governor found for the selected mode.");
+    None
 }
 
 pub fn reset_to_default() {
-    println!("[Reset] Reverting system settings to default mode...");
-
-    let available_governors = get_available_governors();
-    println!("[Reset] Available governors on this system: {:?}", available_governors);
+    println!("[Reset] Reverting to default...");
 
     let fallback_governors = ["ondemand", "schedutil", "powersave", "performance"];
+    let available = get_available_governors();
 
-    for governor in fallback_governors.iter() {
-        if available_governors.contains(&governor.to_string()) {
-            if try_set_cpu_governor(governor) {
-                println!("[Reset] CPU governor set to '{}'.", governor);
+    for gov in &fallback_governors {
+        if available.contains(&gov.to_string()) {
+            if try_set_cpu_governor(gov) {
+                println!("[Reset] Set default governor: {}", gov);
                 return;
             }
         }
     }
-    eprintln!("[Reset] Failed to set any compatible CPU governor.");
+
+    eprintln!("[Reset] Could not apply fallback governor.");
+}
+
+pub fn get_available_governors() -> Vec<String> {
+    let path = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
+    fs::read_to_string(path)
+        .map(|c| c.split_whitespace().map(|s| s.to_string()).collect())
+        .unwrap_or_else(|_| vec![])
+}
+
+pub fn set_cpu_governor(governor: &str) {
+    if !try_set_cpu_governor(governor) {
+        eprintln!("[Governor] Failed to set: {}", governor);
+    }
 }
 
 fn try_set_cpu_governor(governor: &str) -> bool {
-    let cpu_dir = Path::new("/sys/devices/system/cpu");
-
-    if let Ok(entries) = fs::read_dir(cpu_dir) {
+    let cpu_root = Path::new("/sys/devices/system/cpu");
+    if let Ok(entries) = fs::read_dir(cpu_root) {
         for entry in entries.flatten() {
-            let cpu_path = entry.path();
-            let name = cpu_path.file_name().unwrap_or_default().to_string_lossy();
-            if !name.starts_with("cpu") || !cpu_path.is_dir() {
+            let path = entry.path();
+            let name = path.file_name().unwrap_or_default().to_string_lossy();
+            if !name.starts_with("cpu") || !path.join("cpufreq").exists() {
                 continue;
             }
-            let gov_path = cpu_path.join("cpufreq/scaling_governor");
+
+            let gov_path = path.join("cpufreq/scaling_governor");
             if gov_path.exists() {
                 let child = Command::new("sudo")
                     .arg("tee")
-                    .arg(gov_path.to_str().unwrap())
+                    .arg(gov_path.to_string_lossy().to_string())
                     .stdin(Stdio::piped())
                     .spawn();
 
@@ -101,27 +114,8 @@ fn try_set_cpu_governor(governor: &str) -> bool {
                 }
             }
         }
-        return true;
+        true
+    } else {
+        false
     }
-
-    false
-}
-
-pub fn set_cpu_governor(governor: &str) {
-    if !try_set_cpu_governor(governor) {
-        eprintln!("[Governor] Failed to set governor '{}'.", governor);
-    }
-}
-
-pub fn get_available_governors() -> Vec<String> {
-    let path = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors";
-    if Path::new(path).exists() {
-        if let Ok(content) = fs::read_to_string(path) {
-            return content
-                .split_whitespace()
-                .map(|s| s.to_string())
-                .collect();
-        }
-    }
-    vec![]
 }

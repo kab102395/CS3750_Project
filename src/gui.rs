@@ -38,98 +38,106 @@ impl Default for DeckOptimizerGui {
 
 impl eframe::App for DeckOptimizerGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Steam Deck Optimizer");
+    egui::CentralPanel::default().show(ctx, |ui| {
+        egui::ScrollArea::vertical()
+            .auto_shrink([false; 2])
+            .show(ui, |ui| {
+                
+                ui.heading("Steam Deck Optimizer");
 
-            // --- Mode Selector ---
-            ui.separator();
-            ui.horizontal(|ui| {
+                // --- Mode Selector ---
+                ui.separator();
                 ui.label("Select Mode:");
-                if ui.button("Battery Saver").clicked() {
-                    apply_mode(&Mode::BatterySaver);
-                    self.selected_mode = Some(Mode::BatterySaver);
-                }
-                if ui.button("Balanced").clicked() {
-                    apply_mode(&Mode::Balanced);
-                    self.selected_mode = Some(Mode::Balanced);
-                }
-                if ui.button("Performance").clicked() {
-                    apply_mode(&Mode::Performance);
-                    self.selected_mode = Some(Mode::Performance);
-                }
-            });
-
-            if let Some(mode) = &self.selected_mode {
-                ui.label(format!("Last mode applied: {:?}", mode));
-            }
-
-            // --- System Status ---
-            ui.separator();
-            if ui.button("Show System Status").clicked() && !self.status_requested {
-                self.status_requested = true;
-                let (sender, receiver) = mpsc::channel();
-                thread::spawn(move || {
-                    let output = read_latest_log().unwrap_or("[Error] No logs found.".to_string());
-                    let _ = sender.send(output);
-                });
-                self.status_receiver = Some(receiver);
-            }
-
-            if let Some(ref rx) = self.status_receiver {
-                match rx.try_recv() {
-                    Ok(output) => {
-                        self.status_output = output;
-                        self.status_receiver = None;
-                        self.status_requested = false;
+                ui.horizontal(|ui| {
+                    if ui.button("Battery Saver").clicked() {
+                        apply_mode(&Mode::BatterySaver);
+                        self.selected_mode = Some(Mode::BatterySaver);
                     }
-                    Err(mpsc::TryRecvError::Empty) => {
-                        ui.label("Fetching system status...");
-                        ctx.request_repaint();
+                    if ui.button("Balanced").clicked() {
+                        apply_mode(&Mode::Balanced);
+                        self.selected_mode = Some(Mode::Balanced);
                     }
-                    Err(e) => {
-                        self.status_output = format!("[Error] Channel error: {e}");
-                        self.status_receiver = None;
-                        self.status_requested = false;
+                    if ui.button("Performance").clicked() {
+                        apply_mode(&Mode::Performance);
+                        self.selected_mode = Some(Mode::Performance);
                     }
-                }
-            }
-
-            if ui.button("Reset to Default").clicked() {
-                reset_to_default();
-            }
-
-            if ui.button("Log Current Stats").clicked() {
-                log_system_info();
-            }
-
-            // --- Status Output Display ---
-            ui.separator();
-            ui.label("System Status Output:");
-            egui::ScrollArea::vertical()
-                .max_height(ui.available_height() * 0.5)
-                .auto_shrink([false; 2])
-                .show(ui, |ui| {
-                    ui.label(&self.status_output);
                 });
 
-            // --- Game Detection Button ---
-            ui.separator();
-            if ui.button("Detect Installed Games").clicked() {
-                self.discovered_games = discover_all_games();
-            }
+                // --- Extra Governors ---
+                ui.separator();
+                ui.label("Or Select Specific CPU Governor:");
+                for governor in crate::modes::get_available_governors() {
+                    let label = format!("🛠 {}", governor);
+                    if ui.button(label).clicked() {
+                        apply_mode(&Mode::Custom(governor.clone()));
+                        self.selected_mode = Some(Mode::Custom(governor));
+                    }
+                }
 
-            // --- Game List ---
-            // --- Game List ---
-            ui.separator();
-            ui.heading("Detected Games");
+                if let Some(mode) = &self.selected_mode {
+                    ui.label(format!("Last mode applied: {:?}", mode));
+                }
 
-            ui.add_space(5.0);
+                // --- System Status Section ---
+                ui.separator();
+                if ui.button("Show System Status").clicked() && !self.status_requested {
+                    self.status_requested = true;
+                    let (sender, receiver) = mpsc::channel();
+                    thread::spawn(move || {
+                        let output = read_latest_log().unwrap_or("[Error] No logs found.".to_string());
+                        let _ = sender.send(output);
+                    });
+                    self.status_receiver = Some(receiver);
+                }
 
-            egui::Frame::group(ui.style()).show(ui, |ui| {
-                ui.set_min_height(300.0); // Let the frame grow vertically
+                if let Some(ref rx) = self.status_receiver {
+                    match rx.try_recv() {
+                        Ok(output) => {
+                            self.status_output = output;
+                            self.status_receiver = None;
+                            self.status_requested = false;
+                        }
+                        Err(mpsc::TryRecvError::Empty) => {
+                            ui.label("Fetching system status...");
+                            ctx.request_repaint();
+                        }
+                        Err(e) => {
+                            self.status_output = format!("[Error] Channel error: {e}");
+                            self.status_receiver = None;
+                            self.status_requested = false;
+                        }
+                    }
+                }
+
+                if ui.button("Reset to Default").clicked() {
+                    reset_to_default();
+                }
+
+                if ui.button("Log Current Stats").clicked() {
+                    log_system_info();
+                }
+
+                ui.separator();
+                ui.label("System Status Output:");
                 egui::ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .stick_to_bottom(true)
+                    .max_height(180.0)
+                    .auto_shrink([false; 2])
+                    .show(ui, |ui| {
+                        ui.label(&self.status_output);
+                    });
+
+                // --- Game Detection ---
+                ui.separator();
+                if ui.button("Detect Installed Games").clicked() {
+                    self.discovered_games = discover_all_games();
+                }
+
+                ui.separator();
+                ui.heading("Detected Games");
+
+                egui::ScrollArea::vertical()
+                    .max_height(350.0)
+                    .auto_shrink([false; 2])
                     .show(ui, |ui| {
                         for game in &self.discovered_games {
                             ui.group(|ui| {
@@ -157,16 +165,14 @@ impl eframe::App for DeckOptimizerGui {
                                         ui.label(format!("Source: {}", game.source));
                                         if ui.button("Set Optimizations").clicked() {
                                             println!("Optimizations applied for: {}", game.name);
-                                            // TODO: Add optimization logic here
                                         }
                                     });
                                 });
                             });
-                            ui.add_space(8.0);
+                            ui.add_space(6.0);
                         }
                     });
             });
-
-        });
-    }
+    });
+}
 }
