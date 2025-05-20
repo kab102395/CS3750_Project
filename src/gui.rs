@@ -38,9 +38,11 @@ impl Default for DeckOptimizerGui {
             status_requested: false,
             status_result: None,
             status_receiver: None,
+            discovered_games: Vec::new(), // ← Add this line
         }
     }
 }
+
 
 
 impl eframe::App for DeckOptimizerGui {
