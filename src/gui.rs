@@ -1,15 +1,9 @@
 use eframe::egui;
 use crate::modes::{apply_mode, Mode, reset_to_default};
-use crate::logger::{log_system_info, read_latest_log}; // <- new import
-use libc;
-use std::os::fd::AsRawFd;
-use std::fs::File;
-use std::io::Read;
-use std::os::fd::FromRawFd;
+use crate::logger::{log_system_info, read_latest_log};
+use crate::games::{discover_all_games, GameInfo};
 use std::sync::mpsc;
 use std::thread;
-use crate::games::{discover_all_games, GameInfo};
-
 
 pub fn launch_gui() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
@@ -19,7 +13,6 @@ pub fn launch_gui() -> eframe::Result<()> {
         Box::new(|_cc| Box::new(DeckOptimizerGui::default())),
     )
 }
-
 
 struct DeckOptimizerGui {
     status_output: String,
@@ -38,12 +31,10 @@ impl Default for DeckOptimizerGui {
             status_requested: false,
             status_result: None,
             status_receiver: None,
-            discovered_games: Vec::new(), // ← Add this line
+            discovered_games: Vec::new(),
         }
     }
 }
-
-
 
 impl eframe::App for DeckOptimizerGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -72,17 +63,15 @@ impl eframe::App for DeckOptimizerGui {
                 ui.label(format!("Last mode applied: {:?}", mode));
             }
 
-            // --- Actions ---
+            // --- System Status ---
             ui.separator();
             if ui.button("Show System Status").clicked() && !self.status_requested {
                 self.status_requested = true;
-
                 let (sender, receiver) = mpsc::channel();
                 thread::spawn(move || {
                     let output = read_latest_log().unwrap_or("[Error] No logs found.".to_string());
                     let _ = sender.send(output);
                 });
-
                 self.status_receiver = Some(receiver);
             }
 
@@ -113,72 +102,71 @@ impl eframe::App for DeckOptimizerGui {
                 log_system_info();
             }
 
-            // --- Status Output ---
+            // --- Status Output Display ---
             ui.separator();
             ui.label("System Status Output:");
-           let available_height = ui.available_height() * 0.5;
             egui::ScrollArea::vertical()
-                .max_height(available_height)
+                .max_height(ui.available_height() * 0.5)
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
+                    ui.label(&self.status_output);
+                });
 
-
-                ui.label(&self.status_output);
-            });
-
+            // --- Game Detection Button ---
             ui.separator();
             if ui.button("Detect Installed Games").clicked() {
                 self.discovered_games = discover_all_games();
             }
 
-
-            // --- Game Detection Section ---
+            // --- Game List ---
+            // --- Game List ---
             ui.separator();
             ui.heading("Detected Games");
 
-            ui.horizontal(|ui| {
-                if ui.button("Detect Installed Games").clicked() {
-                    self.discovered_games = crate::games::discover_all_games();
-                }
-            });
+            ui.add_space(5.0);
 
-            ui.separator();
-
-            let scroll_frame = egui::ScrollArea::vertical()
-                .auto_shrink([false; 2])
-                .max_height(300.0); // Constrain height for scroll
-
-            scroll_frame.show(ui, |ui| {
-                for game in &self.discovered_games {
-                    ui.group(|ui| {
-                        ui.horizontal(|ui| {
-                            if let Some(img_path) = &game.cover_image {
-                                if let Ok(img_data) = std::fs::read(img_path) {
-                                    if let Ok(image) = egui_extras::image::load_image_bytes(&img_data) {
-                                        let tex = ctx.load_texture(
-                                            &game.name,
-                                            image,
-                                            Default::default(),
-                                        );
-                                        ui.add(egui::Image::new(&tex).fit_to_exact_size(egui::Vec2::new(64.0, 64.0)));
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.set_min_height(300.0); // Let the frame grow vertically
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        for game in &self.discovered_games {
+                            ui.group(|ui| {
+                                ui.horizontal(|ui| {
+                                    if let Some(img_path) = &game.cover_image {
+                                        if let Ok(img_data) = std::fs::read(img_path) {
+                                            if let Ok(image) = egui_extras::image::load_image_bytes(&img_data) {
+                                                let tex = ctx.load_texture(
+                                                    &game.name,
+                                                    image,
+                                                    Default::default(),
+                                                );
+                                                ui.add(
+                                                    egui::Image::new(&tex)
+                                                        .fit_to_exact_size(egui::Vec2::new(64.0, 64.0)),
+                                                );
+                                            }
+                                        }
+                                    } else {
+                                        ui.label("[No Cover]");
                                     }
-                                }
-                            } else {
-                                ui.label("[No Cover]");
-                            }
 
-                            ui.vertical(|ui| {
-                                ui.label(format!("🎮 {}", game.name));
-                                ui.label(format!("Source: {}", game.source));
-                                if ui.button("Set Optimizations").clicked() {
-                                    println!("Optimizations applied for: {}", game.name);
-                                    // TODO: Trigger per-game tuning
-                                }
+                                    ui.vertical(|ui| {
+                                        ui.label(format!("🎮 {}", game.name));
+                                        ui.label(format!("Source: {}", game.source));
+                                        if ui.button("Set Optimizations").clicked() {
+                                            println!("Optimizations applied for: {}", game.name);
+                                            // TODO: Add optimization logic here
+                                        }
+                                    });
+                                });
                             });
-                        });
+                            ui.add_space(8.0);
+                        }
                     });
-                }
             });
-        }
+
+        });
     }
 }
