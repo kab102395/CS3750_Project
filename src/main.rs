@@ -5,7 +5,7 @@ mod logger;
 mod permissions;
 mod hardware;
 mod gui;
-
+mod games;
 use cli::parse_args;
 use permissions::ensure_gpu_permissions;
 use modes::{apply_mode, Mode, reset_to_default};

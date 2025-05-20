@@ -21,6 +21,3 @@ libc = "0.2.172"
 [features]
 gui = []
 
-[[bin]]
-name = "detect_games"
-path = "src/games.rs"
