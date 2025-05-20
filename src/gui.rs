@@ -8,6 +8,7 @@ use std::io::Read;
 use std::os::fd::FromRawFd;
 use std::sync::mpsc;
 use std::thread;
+use crate::games::{discover_all_games, GameInfo};
 
 pub fn launch_gui() -> eframe::Result<()> {
     let options = eframe::NativeOptions::default();
