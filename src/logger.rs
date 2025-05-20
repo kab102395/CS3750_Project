@@ -3,7 +3,6 @@ use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::fs;
-use std::path::Path;
 use serde_json::Value;
 use serde::Serialize;
 use sysinfo::{System, RefreshKind, CpuRefreshKind, MemoryRefreshKind};
@@ -116,7 +115,7 @@ fn read_hwmon_temp() -> Option<f32> {
 
 
 /// Read and pretty-print the most recent system log.
-pub fn read_most_recent_log_pretty() -> Option<String> {
+pub fn read_latest_log() -> Option<String> {
     let log_dir = Path::new("logs");
     if !log_dir.exists() {
         return None;
