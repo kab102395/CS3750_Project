@@ -120,6 +120,12 @@ impl eframe::App for DeckOptimizerGui {
                 ui.label(&self.status_output);
             });
 
+            ui.separator();
+            if ui.button("Detect Installed Games").clicked() {
+                self.discovered_games = discover_all_games();
+            }
+
+
             // --- Game Detection Section ---
             ui.separator();
             ui.heading("Detected Games");
