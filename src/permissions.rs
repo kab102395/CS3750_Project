@@ -1,10 +1,11 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::process::{Command, Stdio};
+#[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::env;
-use nix::unistd::getgid;
 
+#[cfg(unix)]
 pub fn ensure_gpu_permissions() {
     // 1. Check if user is in the "video" group
     if let Ok(groups_output) = Command::new("groups").output() {
@@ -80,20 +81,16 @@ SUBSYSTEM=="drm", GROUP="video", MODE="0660"
 
     // 4. Runtime Group and permission fix on amdgpu_pm_info
     let pm_info = "/sys/kernel/debug/dri/0000:c6:00.0/amdgpu_pm_info";
-    if let Ok(metadata) = fs::metadata(pm_info) {
-        let file_gid = metadata.gid();
-        let user_gid = getgid().as_raw();
+    #[cfg(unix)]
+    if fs::metadata(pm_info).is_ok() {
+        println!("[+] Fixing amdgpu_pm_info permissions for runtime access...");
 
-        if file_gid != user_gid {
-            println!("[+] Fixing amdgpu_pm_info permissions for runtime access...");
-
-            let _ = Command::new("sudo")
-                .args(&["chgrp", "video", pm_info])
-                .status();
-            
-            let _ = Command::new("sudo")
-                .args(&["chmod", "660", pm_info])
-                .status();
-        }
+        let _ = Command::new("sudo")
+            .args(&["chgrp", "video", pm_info])
+            .status();
+        
+        let _ = Command::new("sudo")
+            .args(&["chmod", "660", pm_info])
+            .status();
     }
 }
